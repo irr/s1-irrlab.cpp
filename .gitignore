@@ -40,6 +40,8 @@
 
 # Build directories
 build/
+build-debug/
+dist/
 Build/
 build-*/
 

@@ -1,0 +1,65 @@
+{
+    // Build/test tasks used by launch.json (every debug session runs
+    // "build (debug)" first) and available via Terminal > Run Task.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "configure (debug)",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["-S", ".", "-B", "build-debug", "-DCMAKE_BUILD_TYPE=Debug"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "build (debug)",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "build-debug", "--parallel"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "configure (debug)",
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "test (debug)",
+            "type": "shell",
+            "command": "ctest",
+            "args": ["--test-dir", "build-debug", "--output-on-failure"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "build (debug)",
+            "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+        {
+            "label": "build (release → dist/s1)",
+            "type": "shell",
+            "command": "make",
+            "args": ["build"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "test (release)",
+            "type": "shell",
+            "command": "make",
+            "args": ["test"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

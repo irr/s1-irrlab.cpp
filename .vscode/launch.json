@@ -1,0 +1,143 @@
+{
+    // Debugging configurations for s1. Both debuggers are supported — use
+    // whichever you prefer:
+    //   - "cppdbg" sessions use the Microsoft C/C++ extension with system gdb
+    //     (/usr/bin/gdb)
+    //   - "lldb" sessions use CodeLLDB by Vadim Chugunov, which manages its
+    //     own LLDB (no system lldb needed)
+    //
+    // Every launch session first runs the "build (debug)" task, which builds
+    // the debug tree (build-debug/, -g -O0). The release tree (build/ → dist/s1)
+    // is never touched, so command-line builds stay independent.
+
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Run the proxy under the debugger. It needs a valid config file
+            // to start: s1.toml at the repo root, or point `args` elsewhere.
+            "name": "s1 proxy (C/C++ / gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/s1",
+            "args": ["--config", "${workspaceFolder}/s1.toml"],
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "S1_LOG_LEVEL",
+                    "value": "debug"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build (debug)"
+        },
+        {
+            "name": "s1 proxy (CodeLLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/s1",
+            "args": ["--config", "${workspaceFolder}/s1.toml"],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "S1_LOG_LEVEL": "debug"
+            },
+            "preLaunchTask": "build (debug)"
+        },
+        {
+            // Ports of the Rust unit tests (config, decider, upstream, the
+            // Anthropic/OpenAI translation, the SSE state machine).
+            "name": "unit tests (C/C++ / gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/s1_unit",
+            // Add e.g. ["--test-case=anthropic*"] to focus, or
+            // ["--list-tests"] to see the names.
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build (debug)"
+        },
+        {
+            "name": "unit tests (CodeLLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/s1_unit",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "build (debug)"
+        },
+        {
+            // End-to-end scenarios: the real proxy against in-process mock
+            // decider and tiers. Breakpoints anywhere in src/ are hit while
+            // the e2e binary drives the proxy in-process.
+            "name": "e2e tests (C/C++ / gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/s1_e2e",
+            // Add e.g. ["--test-case=anthropic stream*"] to focus on one
+            // scenario ("--list-tests" prints the names).
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build (debug)"
+        },
+        {
+            "name": "e2e tests (CodeLLDB)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build-debug/s1_e2e",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "build (debug)"
+        },
+        {
+            // Attach to a proxy started outside VS Code. Start it with
+            //   make run-debug          (or ./build-debug/s1 -c s1.toml)
+            // so the running binary is the one this configuration's symbols
+            // point at (attaching to dist/s1 would leave breakpoints stale).
+            // (this uses the C/C++ extension's process picker; for CodeLLDB,
+            // duplicate this configuration with "request": "attach" and set
+            // "pid" to the process id, e.g. from `pgrep -x s1`)
+            "name": "attach to running s1 (C/C++ / gdb)",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceFolder}/build-debug/s1",
+            "processId": "${command:pickProcess}",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
