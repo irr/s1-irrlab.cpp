@@ -1,6 +1,8 @@
 #include "http.hpp"
 
 #include <curl/curl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -10,8 +12,6 @@
 #include <cstring>
 #include <mutex>
 #include <thread>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace s1::http {
 
@@ -101,8 +101,8 @@ struct BufferedTransfer {
 };
 
 bool setup_common(CURL* easy, const std::string& url, const std::string* body,
-                  const std::vector<HeaderEntry>& headers, long timeout_ms,
-                  long connect_timeout_ms, Slist& list, char* error_buffer) {
+                  const std::vector<HeaderEntry>& headers, long timeout_ms, long connect_timeout_ms,
+                  Slist& list, char* error_buffer) {
     curl_easy_setopt(easy, CURLOPT_URL, url.c_str());
     curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
@@ -119,8 +119,7 @@ bool setup_common(CURL* easy, const std::string& url, const std::string* body,
         list.append("Content-Type: application/json");
         curl_easy_setopt(easy, CURLOPT_POST, 1L);
         curl_easy_setopt(easy, CURLOPT_POSTFIELDS, body->c_str());
-        curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE_LARGE,
-                         static_cast<long long>(body->size()));
+        curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<long long>(body->size()));
     }
     curl_easy_setopt(easy, CURLOPT_HTTPHEADER, list.raw);
     return true;
@@ -144,17 +143,15 @@ bool Reply::has_header(const std::string& name) const {
     return false;
 }
 
-Reply post(const std::string& url, const std::string& body,
-           const std::vector<HeaderEntry>& headers, long timeout_ms,
-           long connect_timeout_ms) {
+Reply post(const std::string& url, const std::string& body, const std::vector<HeaderEntry>& headers,
+           long timeout_ms, long connect_timeout_ms) {
     global_init();
     CURL* easy = curl_easy_init();
     if (!easy) return Reply{false, 0, "", {}, "cannot start the request"};
     Slist list;
     char error_buffer[CURL_ERROR_SIZE] = {0};
     BufferedTransfer transfer;
-    setup_common(easy, url, &body, headers, timeout_ms, connect_timeout_ms, list,
-                 error_buffer);
+    setup_common(easy, url, &body, headers, timeout_ms, connect_timeout_ms, list, error_buffer);
     curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, &BufferedTransfer::on_write);
     curl_easy_setopt(easy, CURLOPT_WRITEDATA, &transfer);
     curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, &BufferedTransfer::on_header);
@@ -295,8 +292,7 @@ struct StreamRequest::Impl {
             cv.notify_all();
             return;
         }
-        setup_common(easy, url, &body, headers, timeout_ms, connect_timeout_ms, list,
-                     error_buffer);
+        setup_common(easy, url, &body, headers, timeout_ms, connect_timeout_ms, list, error_buffer);
         curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, &Impl::on_write);
         curl_easy_setopt(easy, CURLOPT_WRITEDATA, this);
         curl_easy_setopt(easy, CURLOPT_HEADERFUNCTION, &Impl::on_header);
@@ -355,12 +351,10 @@ StreamRequest::Head StreamRequest::wait_head() {
     return impl_->published;
 }
 
-bool StreamRequest::next(std::string& chunk, std::chrono::milliseconds timeout,
-                         bool& timed_out) {
+bool StreamRequest::next(std::string& chunk, std::chrono::milliseconds timeout, bool& timed_out) {
     std::unique_lock<std::mutex> lock(impl_->mu);
-    bool signalled = impl_->cv.wait_for(lock, timeout, [&] {
-        return !impl_->chunks.empty() || impl_->body_done || impl_->cancel;
-    });
+    bool signalled = impl_->cv.wait_for(
+        lock, timeout, [&] { return !impl_->chunks.empty() || impl_->body_done || impl_->cancel; });
     timed_out = false;
     if (!signalled) {
         timed_out = true;

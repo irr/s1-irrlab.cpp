@@ -37,9 +37,8 @@ struct Reply {
 
 // Blocking POST with a JSON body; reads the whole response.
 // `timeout_ms` / `connect_timeout_ms` of 0 mean "no limit".
-Reply post(const std::string& url, const std::string& body,
-           const std::vector<HeaderEntry>& headers, long timeout_ms,
-           long connect_timeout_ms);
+Reply post(const std::string& url, const std::string& body, const std::vector<HeaderEntry>& headers,
+           long timeout_ms, long connect_timeout_ms);
 
 // Blocking GET (health probes, tests).
 Reply get(const std::string& url, long timeout_ms);
@@ -54,10 +53,10 @@ Reply get(const std::string& url, long timeout_ms);
 class StreamRequest {
 public:
     struct Head {
-        bool ok = false;      // transport reached the server
+        bool ok = false;  // transport reached the server
         long status = 0;
         std::vector<HeaderEntry> headers;
-        std::string error;    // when !ok
+        std::string error;  // when !ok
     };
 
     StreamRequest(const std::string& url, const std::string& body,

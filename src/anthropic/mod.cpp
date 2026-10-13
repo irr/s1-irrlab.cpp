@@ -7,19 +7,16 @@ namespace s1::anthropic {
 
 decider::Conversation conversation(const Json& body) {
     decider::Conversation conv;
-    conv.system = request::system_text(
-        body.contains("system") ? &body.at("system") : nullptr);
+    conv.system = request::system_text(body.contains("system") ? &body.at("system") : nullptr);
     if (body.contains("tools") && body.at("tools").is_array()) {
         conv.tools = body.at("tools").size();
     }
     if (!body.contains("messages") || !body.at("messages").is_array()) return conv;
 
     for (const auto& message : body.at("messages")) {
-        decider::Role role = get_str(message, "role") == "assistant"
-                                 ? decider::Role::Assistant
-                                 : decider::Role::User;
-        const Json* content =
-            message.contains("content") ? &message.at("content") : nullptr;
+        decider::Role role = get_str(message, "role") == "assistant" ? decider::Role::Assistant
+                                                                     : decider::Role::User;
+        const Json* content = message.contains("content") ? &message.at("content") : nullptr;
         if (!content) continue;
         if (content->is_string()) {
             conv.push(role, content->get<std::string>());
@@ -36,8 +33,7 @@ decider::Conversation conversation(const Json& body) {
             } else if (*type == "image" || *type == "document") {
                 conv.has_images = true;
             } else if (*type == "tool_use") {
-                text.push_back("[tool call: " + get_str(block, "name").value_or("?") +
-                               "]");
+                text.push_back("[tool call: " + get_str(block, "name").value_or("?") + "]");
             } else if (*type == "tool_result") {
                 auto [result, images] = request::tool_result_content(
                     block.contains("content") ? &block.at("content") : nullptr);

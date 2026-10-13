@@ -1,8 +1,8 @@
 #include "server.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <charconv>
+#include <chrono>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -31,10 +31,7 @@ struct State {
     upstream::Upstream flash;
 
     explicit State(config::Config config)
-        : cfg(std::move(config)),
-          decider(cfg.decider),
-          top(cfg.top),
-          flash(cfg.flash) {}
+        : cfg(std::move(config)), decider(cfg.decider), top(cfg.top), flash(cfg.flash) {}
 
     upstream::Upstream& upstream(upstream::Tier tier) {
         return tier == upstream::Tier::Top ? top : flash;
@@ -63,15 +60,13 @@ bool is_success(long status) { return status >= 200 && status <= 299; }
 /// Failures that say the model is unavailable, not that the request is wrong:
 /// the other tier may well succeed.
 bool model_failed_status(long status) {
-    return status >= 500 || status == 401 || status == 403 || status == 404 ||
-           status == 408 || status == 429;
+    return status >= 500 || status == 401 || status == 403 || status == 404 || status == 408 ||
+           status == 429;
 }
 
 /// Status codes that say the upstream does not serve Messages at all (as
 /// opposed to rejecting this particular request).
-bool native_unsupported(long status) {
-    return status == 404 || status == 405 || status == 501;
-}
+bool native_unsupported(long status) { return status == 404 || status == 405 || status == 501; }
 
 std::string fmt_double(double value) {
     char buf[64];
@@ -84,8 +79,7 @@ std::string fmt_double(double value) {
 void render_api_error(httplib::Response& res, Protocol protocol, int status,
                       const std::string& message) {
     res.status = status;
-    res.set_content(api_error_body(protocol, status, message).dump(),
-                    "application/json");
+    res.set_content(api_error_body(protocol, status, message).dump(), "application/json");
 }
 
 /// Tell the caller which tier answered and why.
@@ -99,17 +93,14 @@ void log_routed(Protocol protocol, const decider::Decision& decision, long statu
     if (!log::enabled(log::Level::Info)) return;
     auto now = std::chrono::steady_clock::now();
     auto total = std::chrono::duration_cast<std::chrono::milliseconds>(now - started);
-    std::string line = std::string("routed protocol=") + protocol_str(protocol) +
-                       " tier=" + upstream::tier_str(decision.tier) + " p_top=" +
-                       (decision.p_top ? fmt_double(*decision.p_top) : "null") +
-                       " source=" + decider::source_str(decision.source) +
-                       " failover_from=" +
-                       (decision.failed_over_from
-                            ? upstream::tier_str(*decision.failed_over_from)
-                            : "null") +
-                       " decider_ms=" + std::to_string(decision.elapsed.count()) +
-                       " status=" + std::to_string(status) +
-                       " total_ms=" + std::to_string(total.count());
+    std::string line =
+        std::string("routed protocol=") + protocol_str(protocol) +
+        " tier=" + upstream::tier_str(decision.tier) +
+        " p_top=" + (decision.p_top ? fmt_double(*decision.p_top) : "null") +
+        " source=" + decider::source_str(decision.source) + " failover_from=" +
+        (decision.failed_over_from ? upstream::tier_str(*decision.failed_over_from) : "null") +
+        " decider_ms=" + std::to_string(decision.elapsed.count()) +
+        " status=" + std::to_string(status) + " total_ms=" + std::to_string(total.count());
     log::write(log::Level::Info, line);
 }
 
@@ -144,12 +135,11 @@ struct DecisionOutcome {
     decider::Decision decision{};
 };
 
-DecisionOutcome decide(State& state, Protocol protocol,
-                       const decider::Conversation& conv, httplib::Response& res) {
+DecisionOutcome decide(State& state, Protocol protocol, const decider::Conversation& conv,
+                       httplib::Response& res) {
     auto result = state.decider.decide(conv);
     if (!result.ok) {
-        render_api_error(res, protocol, 503,
-                         "routing decision failed: " + result.error.message);
+        render_api_error(res, protocol, 503, "routing decision failed: " + result.error.message);
         return {};
     }
     return {true, result.decision};
@@ -174,8 +164,7 @@ void forward_stream(httplib::Response& res, long status,
         res.set_header(header.name, header.value);
     }
     res.set_chunked_content_provider(
-        content_type,
-        [call = std::move(call)](size_t /*offset*/, httplib::DataSink& sink) -> bool {
+        content_type, [call = std::move(call)](size_t /*offset*/, httplib::DataSink& sink) -> bool {
             std::string chunk;
             bool timed_out = false;
             while (call->next(chunk, std::chrono::hours(24), timed_out)) {
@@ -199,19 +188,18 @@ struct ChatDispatch {
 
 /// Send to the decided tier. With on_error = "ha", a failing model is replaced
 /// by the other tier, and `decision` is updated to say so.
-ChatDispatch dispatch_chat(State& state, decider::Decision& decision,
-                           const Json& request) {
+ChatDispatch dispatch_chat(State& state, decider::Decision& decision, const Json& request) {
     auto attempt = [&](upstream::Tier tier) -> ChatDispatch {
         const upstream::Upstream& up = state.upstream(tier);
         Json body = request;
         openai::prepare(body, up);
-        auto call = std::make_shared<http::StreamRequest>(
-            up.chat_url(), body.dump(), up.auth_headers(), up.timeout_ms(),
-            upstream::Upstream::kConnectTimeoutMs);
+        auto call = std::make_shared<http::StreamRequest>(up.chat_url(), body.dump(),
+                                                          up.auth_headers(), up.timeout_ms(),
+                                                          upstream::Upstream::kConnectTimeoutMs);
         auto head = call->wait_head();
         if (!head.ok) return ChatDispatch{ChatDispatch::Kind::Dead, {}, 0, {}, head.error};
-        return ChatDispatch{ChatDispatch::Kind::Forwarded, std::move(call), head.status,
-                            head.headers, {}};
+        return ChatDispatch{
+            ChatDispatch::Kind::Forwarded, std::move(call), head.status, head.headers, {}};
     };
 
     // Failures that say the model is unavailable, not that the request is
@@ -229,10 +217,9 @@ ChatDispatch dispatch_chat(State& state, decider::Decision& decision,
         if (auto reason = model_failed(result)) {
             auto failed = decision.tier;
             S1_LOG(log::Level::Warn,
-                   "model failed, failing over failed=" +
-                       std::string(upstream::tier_str(failed)) + " failover=" +
-                       upstream::tier_str(upstream::other_tier(failed)) + " reason=" +
-                       *reason);
+                   "model failed, failing over failed=" + std::string(upstream::tier_str(failed)) +
+                       " failover=" + upstream::tier_str(upstream::other_tier(failed)) +
+                       " reason=" + *reason);
             if (result.call) result.call->cancel();
             decision.tier = upstream::other_tier(failed);
             decision.failed_over_from = failed;
@@ -258,10 +245,9 @@ void handle_chat(const std::shared_ptr<State>& state, const httplib::Request& re
 
     auto dispatch = dispatch_chat(*state, decision, parsed.value);
     if (dispatch.kind == ChatDispatch::Kind::Dead) {
-        S1_LOG(log::Level::Warn,
-               "upstream unreachable protocol=openai tier=" +
-                   std::string(upstream::tier_str(decision.tier)) + " error=" +
-                   dispatch.message);
+        S1_LOG(log::Level::Warn, "upstream unreachable protocol=openai tier=" +
+                                     std::string(upstream::tier_str(decision.tier)) +
+                                     " error=" + dispatch.message);
         render_api_error(res, protocol, 502,
                          std::string(upstream::tier_str(decision.tier)) +
                              " tier request failed: " + dispatch.message);
@@ -287,7 +273,7 @@ struct TierReply {
     std::vector<http::HeaderEntry> headers;
     std::shared_ptr<http::StreamRequest> call;  // Native or ChatStream
     std::string buffered;                       // ChatBuffered body
-    std::string message;                         // Dead / Bad text
+    std::string message;                        // Dead / Bad text
 
     /// Failures that say the model is unavailable, not that the request is
     /// wrong: the other tier may well succeed.
@@ -307,8 +293,8 @@ TierReply ask_tier(State& state, upstream::Tier tier, const Json& request,
 
     Json native = up.native_body(request);
     auto native_call = std::make_shared<http::StreamRequest>(
-        up.messages_url(), native.dump(), up.messages_headers(dialect),
-        up.timeout_ms(), upstream::Upstream::kConnectTimeoutMs);
+        up.messages_url(), native.dump(), up.messages_headers(dialect), up.timeout_ms(),
+        upstream::Upstream::kConnectTimeoutMs);
     auto head = native_call->wait_head();
     if (!head.ok) {
         TierReply reply;
@@ -337,9 +323,9 @@ TierReply ask_tier(State& state, upstream::Tier tier, const Json& request,
     }
     const Json& chat = converted.value;
     if (get_bool(chat, "stream") == true) {
-        auto call = std::make_shared<http::StreamRequest>(
-            up.chat_url(), chat.dump(), up.auth_headers(), up.timeout_ms(),
-            upstream::Upstream::kConnectTimeoutMs);
+        auto call = std::make_shared<http::StreamRequest>(up.chat_url(), chat.dump(),
+                                                          up.auth_headers(), up.timeout_ms(),
+                                                          upstream::Upstream::kConnectTimeoutMs);
         auto chat_head = call->wait_head();
         if (!chat_head.ok) {
             TierReply reply;
@@ -378,8 +364,8 @@ void forward_translated_stream(httplib::Response& res, std::string model,
     res.set_header("cache-control", "no-cache");
     res.set_chunked_content_provider(
         "text/event-stream",
-        [call = std::move(call), model = std::move(model)](
-            size_t /*offset*/, httplib::DataSink& sink) -> bool {
+        [call = std::move(call), model = std::move(model)](size_t /*offset*/,
+                                                           httplib::DataSink& sink) -> bool {
             anthropic::stream::StreamTranslator translator(model);
             auto write_all = [&](const std::vector<anthropic::stream::SseEvent>& events) {
                 for (const auto& event : events) {
@@ -391,15 +377,14 @@ void forward_translated_stream(httplib::Response& res, std::string model,
             if (!write_all(translator.start())) return false;
 
             anthropic::stream::SseParser parser;
-            auto ping_deadline =
-                std::chrono::steady_clock::now() + kPingEvery;
+            auto ping_deadline = std::chrono::steady_clock::now() + kPingEvery;
             bool ended = false;
             bool failed = false;
             std::string fail_message;
             while (!ended && !failed) {
                 auto now = std::chrono::steady_clock::now();
-                auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    ping_deadline - now);
+                auto remaining =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(ping_deadline - now);
                 if (remaining <= std::chrono::milliseconds(0)) {
                     anthropic::stream::SseEvent ping{"ping", Json{{"type", "ping"}}};
                     std::string frame = ping.encode();
@@ -433,9 +418,8 @@ void forward_translated_stream(httplib::Response& res, std::string model,
             }
             if (failed) {
                 S1_LOG(log::Level::Warn, "anthropic stream aborted message=" + fail_message);
-                std::string frame = anthropic::stream::StreamTranslator::error_event(
-                                                            fail_message)
-                                         .encode();
+                std::string frame =
+                    anthropic::stream::StreamTranslator::error_event(fail_message).encode();
                 if (!sink.write(frame.data(), frame.size())) return false;
                 sink.done();
                 return true;
@@ -456,8 +440,7 @@ void handle_messages(const std::shared_ptr<State>& state, const httplib::Request
         render_api_error(res, protocol, 400, parsed.message);
         return;
     }
-    auto decided =
-        decide(*state, protocol, anthropic::conversation(parsed.value), res);
+    auto decided = decide(*state, protocol, anthropic::conversation(parsed.value), res);
     if (!decided.ok) return;
     auto& decision = decided.decision;
     auto dialect = upstream::MessagesHeaders::extract(req.headers);
@@ -467,10 +450,9 @@ void handle_messages(const std::shared_ptr<State>& state, const httplib::Request
         if (auto reason = reply.failed()) {
             auto failed = decision.tier;
             S1_LOG(log::Level::Warn,
-                   "model failed, failing over failed=" +
-                       std::string(upstream::tier_str(failed)) + " failover=" +
-                       upstream::tier_str(upstream::other_tier(failed)) + " reason=" +
-                       *reason);
+                   "model failed, failing over failed=" + std::string(upstream::tier_str(failed)) +
+                       " failover=" + upstream::tier_str(upstream::other_tier(failed)) +
+                       " reason=" + *reason);
             if (reply.call) reply.call->cancel();
             decision.tier = upstream::other_tier(failed);
             decision.failed_over_from = failed;
@@ -479,10 +461,9 @@ void handle_messages(const std::shared_ptr<State>& state, const httplib::Request
     }
 
     if (reply.kind == TierReply::Kind::Dead) {
-        S1_LOG(log::Level::Warn,
-               "upstream unreachable protocol=anthropic tier=" +
-                   std::string(upstream::tier_str(decision.tier)) + " error=" +
-                   reply.message);
+        S1_LOG(log::Level::Warn, "upstream unreachable protocol=anthropic tier=" +
+                                     std::string(upstream::tier_str(decision.tier)) +
+                                     " error=" + reply.message);
         render_api_error(res, protocol, 502,
                          std::string(upstream::tier_str(decision.tier)) +
                              " tier request failed: " + reply.message);
@@ -501,8 +482,7 @@ void handle_messages(const std::shared_ptr<State>& state, const httplib::Request
         // An error arrived in one dialect; hand it to the client in the shape
         // the client expects.
         std::string text = reply.call ? reply.call->drain() : reply.buffered;
-        render_api_error(res, protocol, static_cast<int>(reply.status),
-                         upstream_message(text));
+        render_api_error(res, protocol, static_cast<int>(reply.status), upstream_message(text));
         stamp(res, decision);
         return;
     }
@@ -515,10 +495,10 @@ void handle_messages(const std::shared_ptr<State>& state, const httplib::Request
     } else {
         Json completion = Json::parse(reply.buffered, nullptr, false);
         if (completion.is_discarded()) {
-            render_api_error(res, protocol, 502,
-                             std::string(upstream::tier_str(decision.tier)) +
-                                 " tier returned an unreadable response: " +
-                                 reply.buffered.substr(0, 200));
+            render_api_error(
+                res, protocol, 502,
+                std::string(upstream::tier_str(decision.tier)) +
+                    " tier returned an unreadable response: " + reply.buffered.substr(0, 200));
             stamp(res, decision);
             return;
         }
@@ -538,9 +518,8 @@ void handle_count_tokens(const httplib::Request& req, httplib::Response& res) {
         return;
     }
     res.status = 200;
-    res.set_content(
-        Json{{"input_tokens", anthropic::estimate_tokens(parsed.value)}}.dump(),
-        "application/json");
+    res.set_content(Json{{"input_tokens", anthropic::estimate_tokens(parsed.value)}}.dump(),
+                    "application/json");
 }
 
 void handle_models(const std::shared_ptr<State>& state, httplib::Response& res) {
@@ -564,63 +543,54 @@ void handle_models(const std::shared_ptr<State>& state, httplib::Response& res) 
 
 void handle_health(const std::shared_ptr<State>& state, httplib::Response& res) {
     auto tier = [](const config::TierConfig& cfg) {
-        return Json{{"base_url", cfg.base_url},
-                    {"model", cfg.model},
-                    {"api_key", cfg.api_key.has_value()}};
+        return Json{
+            {"base_url", cfg.base_url}, {"model", cfg.model}, {"api_key", cfg.api_key.has_value()}};
     };
     const config::Config& cfg = state->cfg;
     res.status = 200;
-    res.set_content(
-        Json{{"status", "ok"},
-             {"top", tier(cfg.top)},
-             {"flash", tier(cfg.flash)},
-             {"decider",
-              Json{{"url", cfg.decider.url},
-                   {"model", cfg.decider.model},
-                   {"threshold", cfg.decider.threshold},
-                   {"timeout_ms", cfg.decider.timeout_ms},
-                   {"sticky_ttl_secs", cfg.decider.sticky_ttl_secs}}}}
-            .dump(),
-        "application/json");
+    res.set_content(Json{{"status", "ok"},
+                         {"top", tier(cfg.top)},
+                         {"flash", tier(cfg.flash)},
+                         {"decider", Json{{"url", cfg.decider.url},
+                                          {"model", cfg.decider.model},
+                                          {"threshold", cfg.decider.threshold},
+                                          {"timeout_ms", cfg.decider.timeout_ms},
+                                          {"sticky_ttl_secs", cfg.decider.sticky_ttl_secs}}}}
+                        .dump(),
+                    "application/json");
 }
 
 }  // namespace
 
-Router::Router(config::Config cfg)
-    : state_(std::make_shared<State>(std::move(cfg))) {}
+Router::Router(config::Config cfg) : state_(std::make_shared<State>(std::move(cfg))) {}
 
 Router::~Router() = default;
 
 void Router::install(httplib::Server& svr) {
     svr.set_payload_max_length(kMaxBodyBytes);
-    svr.Get("/health",
-            [state = state_](const httplib::Request&, httplib::Response& res) {
-                handle_health(state, res);
-            });
-    svr.Get("/v1/models",
-            [state = state_](const httplib::Request&, httplib::Response& res) {
-                handle_models(state, res);
-            });
+    svr.Get("/health", [state = state_](const httplib::Request&, httplib::Response& res) {
+        handle_health(state, res);
+    });
+    svr.Get("/v1/models", [state = state_](const httplib::Request&, httplib::Response& res) {
+        handle_models(state, res);
+    });
     svr.Post("/v1/chat/completions",
              [state = state_](const httplib::Request& req, httplib::Response& res) {
                  handle_chat(state, req, res);
              });
-    svr.Post("/v1/messages",
-             [state = state_](const httplib::Request& req, httplib::Response& res) {
-                 handle_messages(state, req, res);
-             });
-    svr.Post("/v1/messages/count_tokens",
-             [](const httplib::Request& req, httplib::Response& res) {
-                 handle_count_tokens(req, res);
-             });
+    svr.Post("/v1/messages", [state = state_](const httplib::Request& req, httplib::Response& res) {
+        handle_messages(state, req, res);
+    });
+    svr.Post("/v1/messages/count_tokens", [](const httplib::Request& req, httplib::Response& res) {
+        handle_count_tokens(req, res);
+    });
     // Everything else: the axum fallback, shaping the 404 for the caller's
     // dialect. Only untouched routing failures (404, empty body) are replaced;
     // error bodies produced by the handlers above pass through.
     svr.set_error_handler([](const httplib::Request& req, httplib::Response& res) {
         if (res.status == 404 && res.body.empty()) {
             Protocol protocol =
-                req.path.rfind("/v1/messages", 0) == 0 ? Protocol::Anthropic
-                                                       : Protocol::OpenAi;
+                req.path.rfind("/v1/messages", 0) == 0 ? Protocol::Anthropic : Protocol::OpenAi;
             render_api_error(res, protocol, 404, "no route for " + req.path);
         }
         return httplib::Server::HandlerResponse::Unhandled;

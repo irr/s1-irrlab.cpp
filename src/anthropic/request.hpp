@@ -20,8 +20,7 @@ struct ToChatResult {
 };
 
 /// Translate a Messages request for `model`. !ok is a client-facing message.
-ToChatResult to_chat(const Json& req, const std::string& model,
-                     std::optional<uint64_t> max_output);
+ToChatResult to_chat(const Json& req, const std::string& model, std::optional<uint64_t> max_output);
 
 /// `system` is either a string or a list of text blocks.
 std::string system_text(const Json* system);

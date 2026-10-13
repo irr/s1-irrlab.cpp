@@ -85,17 +85,15 @@ std::vector<std::string> SseParser::drain() {
 StreamTranslator::StreamTranslator(std::string model) : model_(std::move(model)) {}
 
 std::vector<SseEvent> StreamTranslator::start() const {
-    return {new_event(
-        "message_start",
-        Json{{"message",
-              Json{{"id", response::message_id()},
-                   {"type", "message"},
-                   {"role", "assistant"},
-                   {"model", model_},
-                   {"content", Json::array()},
-                   {"stop_reason", nullptr},
-                   {"stop_sequence", nullptr},
-                   {"usage", response::usage(nullptr)}}}})};
+    return {
+        new_event("message_start", Json{{"message", Json{{"id", response::message_id()},
+                                                         {"type", "message"},
+                                                         {"role", "assistant"},
+                                                         {"model", model_},
+                                                         {"content", Json::array()},
+                                                         {"stop_reason", nullptr},
+                                                         {"stop_sequence", nullptr},
+                                                         {"usage", response::usage(nullptr)}}}})};
 }
 
 std::vector<SseEvent> StreamTranslator::on_chunk(const Json& chunk) {
@@ -143,19 +141,18 @@ void StreamTranslator::tool_delta(std::vector<SseEvent>& out, const Json& call) 
     }
     // Continues the open block unless the index changes, or a new id shows up
     // on the same index (some gateways number every parallel call 0).
-    bool continues = open_.kind == Open::Kind::Tool && open_.index == index &&
-                     (!id || *id == open_.id);
+    bool continues =
+        open_.kind == Open::Kind::Tool && open_.index == index && (!id || *id == open_.id);
     if (!continues) {
         if (!id && tools_seen_.count(index)) {
-            S1_LOG(log::Level::Warn,
-                   "dropping tool-call delta for an already closed block index=" +
-                       std::to_string(index));
+            S1_LOG(log::Level::Warn, "dropping tool-call delta for an already closed block index=" +
+                                         std::to_string(index));
             return;
         }
         std::string block_id = id.value_or(response::tool_use_id());
         std::string name = get_str_at(call, "/function/name").value_or("");
-        Json block = Json{{"type", "tool_use"}, {"id", block_id}, {"name", name},
-                          {"input", Json::object()}};
+        Json block =
+            Json{{"type", "tool_use"}, {"id", block_id}, {"name", name}, {"input", Json::object()}};
         tools_seen_.insert(index);
         open_block(out, Open{Open::Kind::Tool, index, block_id}, std::move(block));
     }
@@ -169,9 +166,8 @@ void StreamTranslator::tool_delta(std::vector<SseEvent>& out, const Json& call) 
 void StreamTranslator::open_block(std::vector<SseEvent>& out, Open open, Json block) {
     close_block(out);
     open_ = open;
-    out.push_back(new_event(
-        "content_block_start",
-        Json{{"index", blocks_}, {"content_block", std::move(block)}}));
+    out.push_back(new_event("content_block_start",
+                            Json{{"index", blocks_}, {"content_block", std::move(block)}}));
     blocks_ += 1;
 }
 
@@ -183,31 +179,26 @@ void StreamTranslator::close_block(std::vector<SseEvent>& out) {
 }
 
 void StreamTranslator::delta(std::vector<SseEvent>& out, Json delta_value) {
-    out.push_back(new_event(
-        "content_block_delta",
-        Json{{"index", blocks_ - 1}, {"delta", std::move(delta_value)}}));
+    out.push_back(new_event("content_block_delta",
+                            Json{{"index", blocks_ - 1}, {"delta", std::move(delta_value)}}));
 }
 
 std::vector<SseEvent> StreamTranslator::finish() {
     std::vector<SseEvent> out;
     if (blocks_ == 0) {
-        open_block(out, Open{Open::Kind::Text, 0, ""},
-                   Json{{"type", "text"}, {"text", ""}});
+        open_block(out, Open{Open::Kind::Text, 0, ""}, Json{{"type", "text"}, {"text", ""}});
     }
     close_block(out);
-    const char* reason =
-        response::stop_reason(finish_reason_, !tools_seen_.empty());
+    const char* reason = response::stop_reason(finish_reason_, !tools_seen_.empty());
     out.push_back(new_event(
-        "message_delta",
-        Json{{"delta", Json{{"stop_reason", reason}, {"stop_sequence", nullptr}}},
-         {"usage", response::usage(usage_ ? &*usage_ : nullptr)}}));
+        "message_delta", Json{{"delta", Json{{"stop_reason", reason}, {"stop_sequence", nullptr}}},
+                              {"usage", response::usage(usage_ ? &*usage_ : nullptr)}}));
     out.push_back(new_event("message_stop", Json::object()));
     return out;
 }
 
 SseEvent StreamTranslator::error_event(const std::string& message) {
-    return new_event("error",
-                     Json{{"error", Json{{"type", "api_error"}, {"message", message}}}});
+    return new_event("error", Json{{"error", Json{{"type", "api_error"}, {"message", message}}}});
 }
 
 }  // namespace s1::anthropic::stream

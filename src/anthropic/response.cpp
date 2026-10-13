@@ -67,9 +67,7 @@ Json usage(const Json* usage_value) {
 
 Json from_chat(const Json& resp, const std::string& model) {
     const Json* choice = json_ptr(resp, "/choices/0");
-    const Json* message = choice && choice->contains("message")
-                              ? &choice->at("message")
-                              : nullptr;
+    const Json* message = choice && choice->contains("message") ? &choice->at("message") : nullptr;
 
     Json content = Json::array();
     if (message) {
@@ -123,14 +121,10 @@ Json from_chat(const Json& resp, const std::string& model) {
     }
     const Json* usage_value = resp.contains("usage") ? &resp.at("usage") : nullptr;
 
-    return Json{{"id", message_id()},
-                {"type", "message"},
-                {"role", "assistant"},
-                {"model", model},
-                {"content", content},
-                {"stop_reason", stop_reason(finish, has_tool_use)},
-                {"stop_sequence", nullptr},
-                {"usage", usage(usage_value)}};
+    return Json{{"id", message_id()},       {"type", "message"},
+                {"role", "assistant"},      {"model", model},
+                {"content", content},       {"stop_reason", stop_reason(finish, has_tool_use)},
+                {"stop_sequence", nullptr}, {"usage", usage(usage_value)}};
 }
 
 }  // namespace s1::anthropic::response

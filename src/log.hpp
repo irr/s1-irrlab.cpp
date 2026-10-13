@@ -20,9 +20,9 @@ const char* level_name(Level level);
 
 }  // namespace s1::log
 
-#define S1_LOG(lvl, msg)                                   \
-    do {                                                   \
-        if (::s1::log::enabled(lvl)) {                     \
-            ::s1::log::write(lvl, msg);                    \
-        }                                                  \
+#define S1_LOG(lvl, msg)                \
+    do {                                \
+        if (::s1::log::enabled(lvl)) {  \
+            ::s1::log::write(lvl, msg); \
+        }                               \
     } while (0)

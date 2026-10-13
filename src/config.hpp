@@ -18,10 +18,14 @@ enum class OnError { Top, Flash, Fail, Ha };
 
 inline const char* on_error_str(OnError value) {
     switch (value) {
-        case OnError::Top: return "top";
-        case OnError::Flash: return "flash";
-        case OnError::Fail: return "fail";
-        case OnError::Ha: return "ha";
+        case OnError::Top:
+            return "top";
+        case OnError::Flash:
+            return "flash";
+        case OnError::Fail:
+            return "fail";
+        case OnError::Ha:
+            return "ha";
     }
     return "top";
 }

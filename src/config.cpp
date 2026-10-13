@@ -1,13 +1,12 @@
 #include "config.hpp"
 
-#include <toml.hpp>
-
 #include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <system_error>
+#include <toml.hpp>
 
 #include "utf8.hpp"
 
@@ -40,8 +39,7 @@ bool valid_http_url(const std::string& value) {
     if (scheme != "http" && scheme != "https") return false;
     std::string rest = value.substr(sep + 3);
     size_t end = rest.find_first_of("/?#");
-    std::string authority =
-        rest.substr(0, end == std::string::npos ? rest.size() : end);
+    std::string authority = rest.substr(0, end == std::string::npos ? rest.size() : end);
     size_t at = authority.rfind('@');
     std::string hostport = at == std::string::npos ? authority : authority.substr(at + 1);
     std::string host = hostport;
@@ -82,17 +80,16 @@ const toml::table* section_of(const toml::table& root, const char* name) {
 void check_keys(const toml::table& table, const std::vector<std::string>& known,
                 const std::string& where) {
     for (const auto& [key, node] : table) {
-            if (std::find(known.begin(), known.end(), std::string(key.str())) ==
-                known.end()) {
-                std::string expected;
-                for (size_t i = 0; i < known.size(); ++i) {
-                    expected += i > 0 ? ", " : "";
-                    expected += "`" + known[i] + "`";
-                }
-                std::string what = where.empty() ? "config" : "[" + where + "]";
-                fail("unknown field `" + std::string(key.str()) + "` in " + what +
-                     ", expected one of " + expected);
+        if (std::find(known.begin(), known.end(), std::string(key.str())) == known.end()) {
+            std::string expected;
+            for (size_t i = 0; i < known.size(); ++i) {
+                expected += i > 0 ? ", " : "";
+                expected += "`" + known[i] + "`";
             }
+            std::string what = where.empty() ? "config" : "[" + where + "]";
+            fail("unknown field `" + std::string(key.str()) + "` in " + what +
+                 ", expected one of " + expected);
+        }
     }
 }
 
@@ -111,13 +108,11 @@ std::optional<uint64_t> uint_field(const toml::table& table, const char* key,
     if (const auto* i = it->second.as_integer()) {
         int64_t value = i->get();
         if (value < 0) {
-            fail("invalid type for key `" + where + "." + key +
-                 "`, expected an unsigned integer");
+            fail("invalid type for key `" + where + "." + key + "`, expected an unsigned integer");
         }
         return static_cast<uint64_t>(value);
     }
-    fail("invalid type for key `" + where + "." + key +
-         "`, expected an unsigned integer");
+    fail("invalid type for key `" + where + "." + key + "`, expected an unsigned integer");
 }
 
 std::optional<double> double_field(const toml::table& table, const char* key,
@@ -136,8 +131,7 @@ struct Validator {
     std::vector<std::string> problems;
 
     // A required string: present, env-expanded, non-empty and not a placeholder.
-    std::optional<std::string> required(const std::string& key,
-                                        std::optional<std::string> value) {
+    std::optional<std::string> required(const std::string& key, std::optional<std::string> value) {
         if (!value) {
             problems.push_back(key + " is required");
             return std::nullopt;
@@ -151,8 +145,7 @@ struct Validator {
         return expanded;
     }
 
-    std::optional<std::string> optional(const std::string& key,
-                                        std::optional<std::string> value) {
+    std::optional<std::string> optional(const std::string& key, std::optional<std::string> value) {
         if (!value) return std::nullopt;
         auto expanded = expand(key, *value);
         if (!expanded) return std::nullopt;
@@ -184,8 +177,7 @@ struct Validator {
             problems.push_back("[" + name + "] section is required (base_url, model)");
             return std::nullopt;
         }
-        check_keys(*raw, {"base_url", "api_key", "model", "timeout_secs",
-                          "max_output_tokens"},
+        check_keys(*raw, {"base_url", "api_key", "model", "timeout_secs", "max_output_tokens"},
                    name);
         auto base_url = url(name + ".base_url", str_field(*raw, "base_url", name));
         auto model = required(name + ".model", str_field(*raw, "model", name));
@@ -210,10 +202,10 @@ struct Validator {
             problems.push_back("[decider] section is required (url)");
             return std::nullopt;
         }
-        check_keys(*raw,
-                   {"url", "api_key", "model", "timeout_ms", "threshold", "on_error",
-                    "sticky_ttl_secs"},
-                   "decider");
+        check_keys(
+            *raw,
+            {"url", "api_key", "model", "timeout_ms", "threshold", "on_error", "sticky_ttl_secs"},
+            "decider");
         auto url = this->url("decider.url", str_field(*raw, "url", "decider"));
         auto api_key = optional("decider.api_key", str_field(*raw, "api_key", "decider"));
         std::optional<std::string> model;
@@ -235,12 +227,17 @@ struct Validator {
         }
         OnError on_error = OnError::Top;
         if (auto value = str_field(*raw, "on_error", "decider")) {
-            if (*value == "top") on_error = OnError::Top;
-            else if (*value == "flash") on_error = OnError::Flash;
-            else if (*value == "fail") on_error = OnError::Fail;
-            else if (*value == "ha") on_error = OnError::Ha;
-            else fail("unknown variant `" + *value + "`, expected one of `top`, " +
-                      "`flash`, `fail`, `ha` for key `decider.on_error`");
+            if (*value == "top")
+                on_error = OnError::Top;
+            else if (*value == "flash")
+                on_error = OnError::Flash;
+            else if (*value == "fail")
+                on_error = OnError::Fail;
+            else if (*value == "ha")
+                on_error = OnError::Ha;
+            else
+                fail("unknown variant `" + *value + "`, expected one of `top`, " +
+                     "`flash`, `fail`, `ha` for key `decider.on_error`");
         }
         uint64_t sticky_ttl_secs = 900;
         if (auto value = uint_field(*raw, "sticky_ttl_secs", "decider")) {

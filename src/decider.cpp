@@ -36,9 +36,12 @@ constexpr size_t kCachePruneAt = 1024;
 
 const char* role_name(Role role) {
     switch (role) {
-        case Role::User: return "user";
-        case Role::Assistant: return "assistant";
-        case Role::Tool: return "tool";
+        case Role::User:
+            return "user";
+        case Role::Assistant:
+            return "assistant";
+        case Role::Tool:
+            return "tool";
     }
     return "user";
 }
@@ -96,8 +99,7 @@ Json Conversation::state() const {
         if (latest && i == *latest) continue;
         if (utf8::trimmed_empty(turns[i].text)) continue;
         context.push_back(std::string(role_name(turns[i].role)) + ": " +
-                          clip(utf8::trim_copy(strip_reminders(turns[i].text)),
-                               kContextChars, 0));
+                          clip(utf8::trim_copy(strip_reminders(turns[i].text)), kContextChars, 0));
     }
     if (context.size() > kContextTurns) {
         Json last = Json::array();
@@ -107,16 +109,14 @@ Json Conversation::state() const {
         context = std::move(last);
     }
 
-    Json state = Json{{"latest_user_request",
-                       clip(utf8::trim_copy(request), kRequestHead, kRequestTail)},
-                      {"recent_context", context},
-                      {"system_prompt_excerpt",
-                       clip(utf8::trim_copy(system), kSystemChars, 0)},
-                      {"turns", turns.size()},
-                      {"tools_available", tools},
-                      {"has_images", has_images},
-                      {"last_turn_is_tool_result",
-                       !turns.empty() && turns.back().role == Role::Tool}};
+    Json state =
+        Json{{"latest_user_request", clip(utf8::trim_copy(request), kRequestHead, kRequestTail)},
+             {"recent_context", context},
+             {"system_prompt_excerpt", clip(utf8::trim_copy(system), kSystemChars, 0)},
+             {"turns", turns.size()},
+             {"tools_available", tools},
+             {"has_images", has_images},
+             {"last_turn_is_tool_result", !turns.empty() && turns.back().role == Role::Tool}};
     return state;
 }
 
@@ -185,15 +185,13 @@ DecideResult Decider::decide(const Conversation& conv) {
     uint64_t key = conv.sticky_key();
     if (auto hit = cached(key)) {
         result.ok = true;
-        result.decision = Decision{hit->first, hit->second, Source::Cache, elapsed(),
-                                   std::nullopt};
+        result.decision = Decision{hit->first, hit->second, Source::Cache, elapsed(), std::nullopt};
         return result;
     }
 
     DeciderError error;
     if (auto p = ask(conv, error)) {
-        upstream::Tier tier = *p >= cfg_.threshold ? upstream::Tier::Top
-                                                   : upstream::Tier::Flash;
+        upstream::Tier tier = *p >= cfg_.threshold ? upstream::Tier::Top : upstream::Tier::Flash;
         store(key, tier, *p);
         result.ok = true;
         result.decision = Decision{tier, *p, Source::Decider, elapsed(), std::nullopt};
@@ -213,23 +211,21 @@ DecideResult Decider::decide(const Conversation& conv) {
             tier = upstream::Tier::Flash;
             break;
     }
-    S1_LOG(log::Level::Warn, "decider unavailable error=" + error.message +
-                                 " fallback=" + upstream::tier_str(tier));
+    S1_LOG(log::Level::Warn,
+           "decider unavailable error=" + error.message + " fallback=" + upstream::tier_str(tier));
     result.ok = true;
     result.decision = Decision{tier, std::nullopt, Source::Fallback, elapsed(), std::nullopt};
     return result;
 }
 
 std::optional<double> Decider::ask(const Conversation& conv, DeciderError& error) {
-    Json body = Json{
-        {"model", cfg_.model},
-        {"state", conv.state()},
-        {"questions",
-         Json{{kQuestionId,
-               Json{{"type", "choice"},
-                    {"instructions", kInstructions},
-                    {"criteria",
-                     Json{{"flash", kFlashCriteria}, {"top", kTopCriteria}}}}}}}};
+    Json body =
+        Json{{"model", cfg_.model},
+             {"state", conv.state()},
+             {"questions", Json{{kQuestionId, Json{{"type", "choice"},
+                                                   {"instructions", kInstructions},
+                                                   {"criteria", Json{{"flash", kFlashCriteria},
+                                                                     {"top", kTopCriteria}}}}}}}};
     if (log::enabled(log::Level::Debug)) {
         S1_LOG(log::Level::Debug, "asking decider state=" + body["state"].dump());
     }
@@ -242,15 +238,13 @@ std::optional<double> Decider::ask(const Conversation& conv, DeciderError& error
         http::post(cfg_.url, body.dump(), headers, static_cast<long>(cfg_.timeout_ms), 0);
 
     if (!reply.ok) {
-        error = DeciderError{DeciderError::Kind::Http,
-                             "decider request failed: " + reply.error};
+        error = DeciderError{DeciderError::Kind::Http, "decider request failed: " + reply.error};
         return std::nullopt;
     }
     if (reply.status < 200 || reply.status > 299) {
-        error = DeciderError{
-            DeciderError::Kind::Status,
-            "decider returned HTTP " + std::to_string(reply.status) + ": " +
-                utf8::take(reply.body, 500)};
+        error = DeciderError{DeciderError::Kind::Status, "decider returned HTTP " +
+                                                             std::to_string(reply.status) + ": " +
+                                                             utf8::take(reply.body, 500)};
         return std::nullopt;
     }
     Json answer = Json::parse(reply.body, nullptr, false);
@@ -265,8 +259,7 @@ std::optional<double> Decider::ask(const Conversation& conv, DeciderError& error
     auto p = p_top(answer);
     if (!p) {
         error = DeciderError{DeciderError::Kind::Answer,
-                             "decider response has no usable `tier` answer: " +
-                                 answer.dump()};
+                             "decider response has no usable `tier` answer: " + answer.dump()};
     }
     return p;
 }

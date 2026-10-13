@@ -39,16 +39,14 @@ std::vector<http::HeaderEntry> Upstream::auth_headers() const {
     return headers;
 }
 
-std::vector<http::HeaderEntry> Upstream::messages_headers(
-    const MessagesHeaders& dialect) const {
+std::vector<http::HeaderEntry> Upstream::messages_headers(const MessagesHeaders& dialect) const {
     auto headers = auth_headers();
     dialect.apply(headers);
     return headers;
 }
 
 http::Reply Upstream::send(const Json& body) const {
-    return http::post(chat_url_, body.dump(), auth_headers(), timeout_ms_,
-                      kConnectTimeoutMs);
+    return http::post(chat_url_, body.dump(), auth_headers(), timeout_ms_, kConnectTimeoutMs);
 }
 
 Json Upstream::native_body(const Json& request) const {

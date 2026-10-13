@@ -11,15 +11,23 @@ bool is_client_error(int status) { return status >= 400 && status < 500; }
 const char* anthropic_kind(int status) {
     switch (status) {
         case 400:
-        case 422: return "invalid_request_error";
-        case 401: return "authentication_error";
-        case 403: return "permission_error";
-        case 404: return "not_found_error";
-        case 413: return "request_too_large";
-        case 429: return "rate_limit_error";
+        case 422:
+            return "invalid_request_error";
+        case 401:
+            return "authentication_error";
+        case 403:
+            return "permission_error";
+        case 404:
+            return "not_found_error";
+        case 413:
+            return "request_too_large";
+        case 429:
+            return "rate_limit_error";
         case 503:
-        case 529: return "overloaded_error";
-        default: return "api_error";
+        case 529:
+            return "overloaded_error";
+        default:
+            return "api_error";
     }
 }
 
@@ -27,12 +35,11 @@ const char* anthropic_kind(int status) {
 
 Json api_error_body(Protocol protocol, int status, const std::string& message) {
     if (protocol == Protocol::Anthropic) return anthropic_error(status, message);
-    Json body = Json{{"error", Json{{"message", message},
-                                    {"type", is_client_error(status)
-                                                 ? "invalid_request_error"
-                                                 : "api_error"},
-                                    {"param", nullptr},
-                                    {"code", nullptr}}}};
+    Json body = Json{
+        {"error", Json{{"message", message},
+                       {"type", is_client_error(status) ? "invalid_request_error" : "api_error"},
+                       {"param", nullptr},
+                       {"code", nullptr}}}};
     return body;
 }
 
@@ -51,10 +58,8 @@ std::string upstream_message(const std::string& body) {
         const Json* candidates[] = {
             json_ptr(parsed, "/error/message"),
             parsed.is_object() && parsed.contains("error") ? &parsed.at("error") : nullptr,
-            parsed.is_object() && parsed.contains("message") ? &parsed.at("message")
-                                                             : nullptr,
-            parsed.is_object() && parsed.contains("detail") ? &parsed.at("detail")
-                                                            : nullptr,
+            parsed.is_object() && parsed.contains("message") ? &parsed.at("message") : nullptr,
+            parsed.is_object() && parsed.contains("detail") ? &parsed.at("detail") : nullptr,
         };
         for (const Json* candidate : candidates) {
             if (candidate) {

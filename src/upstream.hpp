@@ -4,11 +4,11 @@
 
 #pragma once
 
+#include <httplib.h>
+
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <httplib.h>
 
 #include "config.hpp"
 #include "http.hpp"
@@ -84,7 +84,8 @@ public:
 private:
     std::string chat_url_;
     std::string messages_url_;
-    std::optional<std::string> api_key_;    long timeout_ms_ = 0;  // whole-request limit, 0 = wait forever
+    std::optional<std::string> api_key_;
+    long timeout_ms_ = 0;  // whole-request limit, 0 = wait forever
 };
 
 }  // namespace s1::upstream

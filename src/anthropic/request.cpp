@@ -49,17 +49,14 @@ void push_user(std::vector<Json>& out, const Json& content) {
             if (auto part = image_part(block)) parts.push_back(*part);
         } else if (*type == "document") {
             parts.push_back(Json{{"type", "text"},
-                                 {"text",
-                                  "[document omitted: not supported by this model]"}});
+                                 {"text", "[document omitted: not supported by this model]"}});
         } else if (*type == "tool_result") {
             auto [text, images] =
-                tool_result_content(block.contains("content") ? &block.at("content")
-                                                              : nullptr);
+                tool_result_content(block.contains("content") ? &block.at("content") : nullptr);
             Json tool_call_id =
                 block.contains("tool_use_id") ? block.at("tool_use_id") : Json(nullptr);
-            out.push_back(Json{{"role", "tool"},
-                               {"tool_call_id", tool_call_id},
-                               {"content", text}});
+            out.push_back(
+                Json{{"role", "tool"}, {"tool_call_id", tool_call_id}, {"content", text}});
             for (const auto& image : images) parts.push_back(image);
         }
     }
@@ -98,13 +95,12 @@ Json assistant(const Json& content) {
                 text += get_str(block, "text").value_or("");
             } else if (*type == "tool_use") {
                 Json input = block.contains("input") ? block.at("input") : Json::object();
-                calls.push_back(Json{
-                    {"id", block.contains("id") ? block.at("id") : Json(nullptr)},
-                    {"type", "function"},
-                    {"function",
-                     Json{{"name", block.contains("name") ? block.at("name")
-                                                          : Json(nullptr)},
-                          {"arguments", input.dump()}}}});
+                calls.push_back(
+                    Json{{"id", block.contains("id") ? block.at("id") : Json(nullptr)},
+                         {"type", "function"},
+                         {"function",
+                          Json{{"name", block.contains("name") ? block.at("name") : Json(nullptr)},
+                               {"arguments", input.dump()}}}});
             }
         }
     }
@@ -162,16 +158,14 @@ ToChatResult to_chat(const Json& req, const std::string& model,
     }
 
     std::vector<Json> out;
-    std::string system =
-        system_text(req.contains("system") ? &req.at("system") : nullptr);
+    std::string system = system_text(req.contains("system") ? &req.at("system") : nullptr);
     if (!system.empty()) {
         out.push_back(Json{{"role", "system"}, {"content", system}});
     }
     const Json& messages = req.at("messages");
     for (size_t i = 0; i < messages.size(); ++i) {
         const Json& message = messages[i];
-        const Json& content = message.contains("content") ? message.at("content")
-                                                          : null_value();
+        const Json& content = message.contains("content") ? message.at("content") : null_value();
         auto role = get_str(message, "role");
         if (role == "user") {
             push_user(out, content);
@@ -180,8 +174,8 @@ ToChatResult to_chat(const Json& req, const std::string& model,
         } else if (role == "system") {
             out.push_back(Json{{"role", "system"}, {"content", system_text(&content)}});
         } else if (role) {
-            result.error = "messages[" + std::to_string(i) + "].role `" + *role +
-                           "` is not supported";
+            result.error =
+                "messages[" + std::to_string(i) + "].role `" + *role + "` is not supported";
             return result;
         } else {
             result.error = "messages[" + std::to_string(i) + "].role is required";
@@ -210,8 +204,7 @@ ToChatResult to_chat(const Json& req, const std::string& model,
         chat["stream_options"] = Json{{"include_usage", true}};
     }
 
-    std::vector<Json> translated_tools =
-        tools(req.contains("tools") ? &req.at("tools") : nullptr);
+    std::vector<Json> translated_tools = tools(req.contains("tools") ? &req.at("tools") : nullptr);
     if (!translated_tools.empty()) {
         chat["tools"] = translated_tools;
         if (req.contains("tool_choice")) {

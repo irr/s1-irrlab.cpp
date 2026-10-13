@@ -3,7 +3,6 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-
 #include <httplib.h>
 
 #include "anthropic/mod.hpp"
@@ -335,18 +334,18 @@ TEST_CASE("anthropic request: translates images and tool-only turns") {
     CHECK(!chat.contains("tools"));
     const Json& messages = chat["messages"];
     CHECK(messages[0]["content"][1] ==
-          Json::parse(R"({"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}})"));
+          Json::parse(
+              R"({"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}})"));
     CHECK(messages[1]["content"] == nullptr);
     CHECK(messages[1]["tool_calls"][0]["function"]["arguments"] == "{}");
 }
 
 TEST_CASE("anthropic request: rejects malformed requests") {
-    CHECK(!anthropic::request::to_chat(Json::parse(R"({"messages": "hi"})"), "m",
-                                       std::nullopt)
-               .ok);
-    CHECK(!anthropic::request::to_chat(Json::parse(R"({"messages": [{"role": "robot", "content": "x"}]})"),
-                                       "m", std::nullopt)
-               .ok);
+    CHECK(!anthropic::request::to_chat(Json::parse(R"({"messages": "hi"})"), "m", std::nullopt).ok);
+    CHECK(
+        !anthropic::request::to_chat(
+             Json::parse(R"({"messages": [{"role": "robot", "content": "x"}]})"), "m", std::nullopt)
+             .ok);
 }
 
 // ----------------------------------------------------- anthropic: response ---
@@ -372,8 +371,10 @@ TEST_CASE("anthropic response: translates text reasoning and tool calls") {
     CHECK(msg["stop_reason"] == "tool_use");
     CHECK(msg["content"][0]["type"] == "thinking");
     CHECK(msg["content"][1] == Json::parse(R"({"type": "text", "text": "checking"})"));
-    CHECK(msg["content"][2] ==
-          Json::parse(R"({"type": "tool_use", "id": "call_1", "name": "read", "input": {"path": "a.rs"}})"));
+    CHECK(
+        msg["content"][2] ==
+        Json::parse(
+            R"({"type": "tool_use", "id": "call_1", "name": "read", "input": {"path": "a.rs"}})"));
     CHECK(msg["usage"]["input_tokens"] == 60);
     CHECK(msg["usage"]["cache_read_input_tokens"] == 40);
     CHECK(msg["usage"]["output_tokens"] == 20);
@@ -410,9 +411,9 @@ std::vector<anthropic::stream::SseEvent> run_translator(const std::vector<Json>&
 }
 
 Json chunk_delta(Json delta) {
-    return Json{{"choices", Json::array({Json{{"index", 0},
-                                              {"delta", std::move(delta)},
-                                              {"finish_reason", nullptr}}})}};
+    return Json{
+        {"choices", Json::array({Json{
+                        {"index", 0}, {"delta", std::move(delta)}, {"finish_reason", nullptr}}})}};
 }
 
 std::vector<std::string> event_names(const std::vector<anthropic::stream::SseEvent>& events) {
@@ -430,9 +431,9 @@ TEST_CASE("anthropic stream: text stream") {
         Json::parse(R"({"choices": [], "usage": {"prompt_tokens": 12, "completion_tokens": 2}})"),
     });
     CHECK(event_names(events) ==
-          std::vector<std::string>{"message_start", "content_block_start",
-                                    "content_block_delta", "content_block_delta",
-                                    "content_block_stop", "message_delta", "message_stop"});
+          std::vector<std::string>{"message_start", "content_block_start", "content_block_delta",
+                                   "content_block_delta", "content_block_stop", "message_delta",
+                                   "message_stop"});
     CHECK(events[0].data["message"]["model"] == "qwen");
     CHECK(events[2].data["delta"] == Json::parse(R"({"type": "text_delta", "text": "Hel"})"));
     CHECK(events[5].data["delta"]["stop_reason"] == "end_turn");
@@ -442,12 +443,11 @@ TEST_CASE("anthropic stream: text stream") {
 }
 
 TEST_CASE("anthropic stream: thinking then text then parallel tools") {
-    auto tool = [](uint64_t index, std::optional<std::string> id,
-                   std::optional<std::string> name, const std::string& args) {
+    auto tool = [](uint64_t index, std::optional<std::string> id, std::optional<std::string> name,
+                   const std::string& args) {
         Json call = Json{{"index", index}};
         call["id"] = id ? Json(*id) : Json(nullptr);
-        call["function"] = Json{{"name", name ? Json(*name) : Json(nullptr)},
-                               {"arguments", args}};
+        call["function"] = Json{{"name", name ? Json(*name) : Json(nullptr)}, {"arguments", args}};
         return chunk_delta(Json{{"tool_calls", Json::array({call})}});
     };
     auto events = run_translator({
@@ -490,8 +490,7 @@ TEST_CASE("anthropic stream: thinking then text then parallel tools") {
     std::string json_parts;
     for (const auto& event : events) {
         if (event.data.contains("index") && event.data["index"] == 2 &&
-            event.data.contains("delta") &&
-            event.data["delta"]["type"] == "input_json_delta") {
+            event.data.contains("delta") && event.data["delta"]["type"] == "input_json_delta") {
             json_parts += event.data["delta"]["partial_json"].get<std::string>();
         }
     }
@@ -506,9 +505,8 @@ TEST_CASE("anthropic stream: thinking then text then parallel tools") {
 
 TEST_CASE("anthropic stream: same index new id starts a new tool block") {
     auto call = [](const std::string& id) {
-        Json entry = Json{{"index", 0},
-                           {"id", id},
-                           {"function", Json{{"name", "f"}, {"arguments", "{}"}}}};
+        Json entry =
+            Json{{"index", 0}, {"id", id}, {"function", Json{{"name", "f"}, {"arguments", "{}"}}}};
         return chunk_delta(Json{{"tool_calls", Json::array({entry})}});
     };
     auto events = run_translator({call("a"), call("b")});
@@ -521,8 +519,7 @@ TEST_CASE("anthropic stream: same index new id starts a new tool block") {
 
 TEST_CASE("anthropic stream: empty stream emits one empty text block") {
     auto events = run_translator({});
-    CHECK(event_names(events) ==
-          std::vector<std::string>{"message_start", "content_block_start",
-                                    "content_block_stop", "message_delta",
-                                    "message_stop"});
+    CHECK(event_names(events) == std::vector<std::string>{"message_start", "content_block_start",
+                                                          "content_block_stop", "message_delta",
+                                                          "message_stop"});
 }

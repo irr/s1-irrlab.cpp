@@ -1,11 +1,11 @@
 #include "log.hpp"
 
+#include <sys/time.h>
+
 #include <atomic>
 #include <cstdio>
 #include <ctime>
 #include <mutex>
-
-#include <sys/time.h>
 
 namespace s1::log {
 
@@ -46,9 +46,9 @@ void write(Level level, const std::string& message) {
     std::tm tm{};
     gmtime_r(&tv.tv_sec, &tm);
     char stamp[64];
-    std::snprintf(stamp, sizeof(stamp), "%04d-%02d-%02dT%02d:%02d:%02d.%06dZ",
-                  tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min,
-                  tm.tm_sec, static_cast<int>(tv.tv_usec));
+    std::snprintf(stamp, sizeof(stamp), "%04d-%02d-%02dT%02d:%02d:%02d.%06dZ", tm.tm_year + 1900,
+                  tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+                  static_cast<int>(tv.tv_usec));
     std::lock_guard<std::mutex> lock(g_mutex);
     std::fprintf(stdout, "%s %s s1: %s\n", stamp, level_name(level), message.c_str());
     std::fflush(stdout);

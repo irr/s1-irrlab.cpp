@@ -52,9 +52,12 @@ enum class Source { Decider, Cache, Fallback };
 
 inline const char* source_str(Source source) {
     switch (source) {
-        case Source::Decider: return "decider";
-        case Source::Cache: return "cache";
-        case Source::Fallback: return "fallback";
+        case Source::Decider:
+            return "decider";
+        case Source::Cache:
+            return "cache";
+        case Source::Fallback:
+            return "fallback";
     }
     return "decider";
 }

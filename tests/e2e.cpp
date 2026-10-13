@@ -4,7 +4,6 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
-
 #include <httplib.h>
 
 #include <atomic>
@@ -156,18 +155,22 @@ struct Harness {
         top->start();
         flash->start();
 
-        auto tier = [](const MockServer& server, const char* model,
-                       const char* key) {
+        auto tier = [](const MockServer& server, const char* model, const char* key) {
             return TierConfig{server.uri() + "/v1",
-                              key ? std::optional<std::string>(key) : std::nullopt,
-                              model, std::nullopt, std::nullopt};
+                              key ? std::optional<std::string>(key) : std::nullopt, model,
+                              std::nullopt, std::nullopt};
         };
         Config cfg;
         cfg.server = ServerConfig{"127.0.0.1", 0};
         cfg.top = tier(*top, "top-model", "top-secret");
         cfg.flash = tier(*flash, "flash-model", nullptr);
-        cfg.decider = DeciderConfig{decider->uri() + "/v1/decisions", std::nullopt,
-                                    "clef-flash", 300, 0.5, OnError::Top, 900};
+        cfg.decider = DeciderConfig{decider->uri() + "/v1/decisions",
+                                    std::nullopt,
+                                    "clef-flash",
+                                    300,
+                                    0.5,
+                                    OnError::Top,
+                                    900};
         if (tweak) tweak(cfg);
 
         router = std::make_unique<server::Router>(std::move(cfg));
@@ -185,16 +188,16 @@ struct Harness {
     /// The decider answers every request with this p(top).
     void decide(double p_top) {
         const char* choice = p_top >= 0.5 ? "top" : "flash";
-        decider->on_decisions_ = [p_top, choice](const httplib::Request&,
-                                                 httplib::Response& res) {
-            respond_json(res, 200, Json{
-                {"model", "clef-flash"},
-                {"answers", Json{{"tier", Json{{"type", "choice"},
-                                                {"choice", choice},
-                                                {"confidence", std::max(p_top, 1.0 - p_top)},
-                                                {"probabilities", Json{{"flash", 1.0 - p_top},
-                                                                       {"top", p_top}}}}}}},
-                {"usage", Json{{"input_tokens", 200}, {"output_tokens", 0}}}});
+        decider->on_decisions_ = [p_top, choice](const httplib::Request&, httplib::Response& res) {
+            respond_json(
+                res, 200,
+                Json{{"model", "clef-flash"},
+                     {"answers", Json{{"tier", Json{{"type", "choice"},
+                                                    {"choice", choice},
+                                                    {"confidence", std::max(p_top, 1.0 - p_top)},
+                                                    {"probabilities", Json{{"flash", 1.0 - p_top},
+                                                                           {"top", p_top}}}}}}},
+                     {"usage", Json{{"input_tokens", 200}, {"output_tokens", 0}}}});
         };
     }
 
@@ -233,15 +236,14 @@ struct Harness {
 };
 
 Json completion_body(const char* text) {
-    return Json{{"id", "chatcmpl-1"},
-                {"object", "chat.completion"},
-                {"choices", Json::array({Json{
-                    {"index", 0},
-                    {"finish_reason", "stop"},
-                    {"message", Json{{"role", "assistant"}, {"content", text}}}}})},
-                {"usage", Json{{"prompt_tokens", 9},
-                               {"completion_tokens", 3},
-                               {"total_tokens", 12}}}};
+    return Json{
+        {"id", "chatcmpl-1"},
+        {"object", "chat.completion"},
+        {"choices",
+         Json::array({Json{{"index", 0},
+                           {"finish_reason", "stop"},
+                           {"message", Json{{"role", "assistant"}, {"content", text}}}}})},
+        {"usage", Json{{"prompt_tokens", 9}, {"completion_tokens", 3}, {"total_tokens", 12}}}};
 }
 
 /// A chat-completions mock that answers `completion` when the body matches
@@ -344,8 +346,7 @@ TEST_CASE("decider failures fall back to top") {
     for (const auto& failure : failures) {
         CAPTURE(failure.status);
         Harness h;
-        h.decider->on_decisions_ = [failure](const httplib::Request&,
-                                             httplib::Response& res) {
+        h.decider->on_decisions_ = [failure](const httplib::Request&, httplib::Response& res) {
             if (failure.delay_ms > 0) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(failure.delay_ms));
             }
@@ -372,10 +373,10 @@ TEST_CASE("unreachable decider can fail the request instead") {
     CHECK(openai.status == 503);
     CHECK(openai.json()["error"]["message"].is_string());
 
-    auto anthropic = h.post(
-        "/v1/messages",
-        Json{{"max_tokens", 10},
-             {"messages", Json::array({Json{{"role", "user"}, {"content", "hi"}}})}});
+    auto anthropic =
+        h.post("/v1/messages",
+               Json{{"max_tokens", 10},
+                    {"messages", Json::array({Json{{"role", "user"}, {"content", "hi"}}})}});
     CHECK(anthropic.status == 503);
     Json body = anthropic.json();
     CHECK(body["type"] == "error");
@@ -415,10 +416,10 @@ TEST_CASE("ha survives decider and top tier both being down") {
     CHECK(openai.header_of("x-s1-decision") == "src=fallback;failover_from=top");
 
     // The Anthropic body is rebuilt for the tier that actually answers.
-    auto anthropic = h.post(
-        "/v1/messages",
-        Json{{"max_tokens", 10},
-             {"messages", Json::array({Json{{"role", "user"}, {"content", "hi"}}})}});
+    auto anthropic =
+        h.post("/v1/messages",
+               Json{{"max_tokens", 10},
+                    {"messages", Json::array({Json{{"role", "user"}, {"content", "hi"}}})}});
     CHECK(anthropic.status == 200);
     CHECK(anthropic.header_of("x-s1-tier") == "flash");
     Json body = anthropic.json();
@@ -486,20 +487,18 @@ TEST_CASE("tool loop reuses the decision and new turns ask again") {
 
     Json first = chat_request("refactor the parser");
     Json follow_up = first;
-    follow_up["messages"].push_back(Json{
-        {"role", "assistant"},
-        {"content", nullptr},
-        {"tool_calls", Json::array({Json{{"id", "c1"},
-                                         {"type", "function"},
-                                         {"function", Json{{"name", "read"},
-                                                           {"arguments", "{}"}}}}})}});
+    follow_up["messages"].push_back(
+        Json{{"role", "assistant"},
+             {"content", nullptr},
+             {"tool_calls",
+              Json::array({Json{{"id", "c1"},
+                                {"type", "function"},
+                                {"function", Json{{"name", "read"}, {"arguments", "{}"}}}}})}});
     follow_up["messages"].push_back(
         Json{{"role", "tool"}, {"tool_call_id", "c1"}, {"content", "fn parse() {}"}});
     Json next_turn = follow_up;
-    next_turn["messages"].push_back(
-        Json{{"role", "assistant"}, {"content", "done"}});
-    next_turn["messages"].push_back(
-        Json{{"role", "user"}, {"content", "thanks"}});
+    next_turn["messages"].push_back(Json{{"role", "assistant"}, {"content", "done"}});
+    next_turn["messages"].push_back(Json{{"role", "user"}, {"content", "thanks"}});
 
     auto a = h.post("/v1/chat/completions", first);
     auto b = h.post("/v1/chat/completions", follow_up);
@@ -554,16 +553,23 @@ TEST_CASE("anthropic request is translated both ways") {
             res.status = 404;
             return;
         }
-        respond_json(res, 200, Json{
-            {"choices", Json::array({Json{
-                {"index", 0},
-                {"finish_reason", "tool_calls"},
-                {"message", Json{{"role", "assistant"}, {"content", nullptr},
-                                 {"tool_calls", Json::array({Json{
-                                     {"id", "call_1"}, {"type", "function"},
-                                     {"function", Json{{"name", "read"},
-                                                       {"arguments", "{\"path\":\"main.rs\"}"}}}}})}}}}})},
-            {"usage", Json{{"prompt_tokens", 30}, {"completion_tokens", 8}}}});
+        respond_json(
+            res, 200,
+            Json{
+                {"choices",
+                 Json::array({Json{
+                     {"index", 0},
+                     {"finish_reason", "tool_calls"},
+                     {"message", Json{{"role", "assistant"},
+                                      {"content", nullptr},
+                                      {"tool_calls",
+                                       Json::array({Json{
+                                           {"id", "call_1"},
+                                           {"type", "function"},
+                                           {"function", Json{{"name", "read"},
+                                                             {"arguments",
+                                                              "{\"path\":\"main.rs\"}"}}}}})}}}}})},
+                {"usage", Json{{"prompt_tokens", 30}, {"completion_tokens", 8}}}});
     };
 
     auto response = h.post(
@@ -571,12 +577,13 @@ TEST_CASE("anthropic request is translated both ways") {
         Json{{"model", "claude-something"},
              {"max_tokens", 256},
              {"system", "be terse"},
-             {"tools", Json::array({Json{{"name", "read"},
-                                         {"input_schema", Json{{"type", "object"}}}}})},
-             {"messages", Json::array({Json{
-                 {"role", "user"},
-                 {"content", Json::array({Json{{"type", "text"},
-                                                {"text", "what is in main.rs?"}}})}}})}});
+             {"tools",
+              Json::array({Json{{"name", "read"}, {"input_schema", Json{{"type", "object"}}}}})},
+             {"messages",
+              Json::array({Json{
+                  {"role", "user"},
+                  {"content",
+                   Json::array({Json{{"type", "text"}, {"text", "what is in main.rs?"}}})}}})}});
 
     CHECK(response.status == 200);
     CHECK(response.header_of("x-s1-tier") == "flash");
@@ -585,8 +592,10 @@ TEST_CASE("anthropic request is translated both ways") {
     CHECK(body["role"] == "assistant");
     CHECK(body["model"] == "flash-model");
     CHECK(body["stop_reason"] == "tool_use");
-    CHECK(body["content"] == Json::parse(
-                                R"([{"type": "tool_use", "id": "call_1", "name": "read", "input": {"path": "main.rs"}}])"));
+    CHECK(
+        body["content"] ==
+        Json::parse(
+            R"([{"type": "tool_use", "id": "call_1", "name": "read", "input": {"path": "main.rs"}}])"));
     CHECK(body["usage"]["input_tokens"] == 30);
     CHECK(body["usage"]["output_tokens"] == 8);
     CHECK(h.flash->count("/v1/chat/completions") == 1);
@@ -615,11 +624,11 @@ TEST_CASE("anthropic stream is translated to message events") {
         respond_raw(res, 200, upstream, "text/event-stream");
     };
 
-    auto response = h.post(
-        "/v1/messages",
-        Json{{"max_tokens", 64},
-             {"stream", true},
-             {"messages", Json::array({Json{{"role", "user"}, {"content", "greet me"}}})}});
+    auto response =
+        h.post("/v1/messages",
+               Json{{"max_tokens", 64},
+                    {"stream", true},
+                    {"messages", Json::array({Json{{"role", "user"}, {"content", "greet me"}}})}});
     CHECK(response.header_of("content-type") == "text/event-stream");
     CHECK(response.header_of("x-s1-tier") == "top");
 
@@ -641,9 +650,8 @@ TEST_CASE("anthropic stream is translated to message events") {
     std::vector<std::string> names;
     for (auto& [name, data] : events) names.push_back(name);
     CHECK(names == std::vector<std::string>{"message_start", "content_block_start",
-                                            "content_block_delta",
-                                            "content_block_delta", "content_block_stop",
-                                            "message_delta", "message_stop"});
+                                            "content_block_delta", "content_block_delta",
+                                            "content_block_stop", "message_delta", "message_stop"});
     std::string said;
     for (auto& [name, data] : events) {
         if (data.contains("delta") && data["delta"].contains("text")) {
@@ -664,13 +672,15 @@ TEST_CASE("anthropic callers get anthropic shaped errors") {
         respond_json(res, 429, Json{{"error", Json{{"message", "slow down"}}}});
     };
 
-    auto upstream_error = h.post(
-        "/v1/messages",
-        Json{{"max_tokens", 10},
-             {"messages", Json::array({Json{{"role", "user"}, {"content", "hi"}}})}});
+    auto upstream_error =
+        h.post("/v1/messages",
+               Json{{"max_tokens", 10},
+                    {"messages", Json::array({Json{{"role", "user"}, {"content", "hi"}}})}});
     CHECK(upstream_error.status == 429);
-    CHECK(upstream_error.json() ==
-          Json::parse(R"({"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}})"));
+    CHECK(
+        upstream_error.json() ==
+        Json::parse(
+            R"({"type": "error", "error": {"type": "rate_limit_error", "message": "slow down"}})"));
 
     auto bad_request = h.post("/v1/messages", Json{{"messages", "nope"}});
     CHECK(bad_request.status == 400);

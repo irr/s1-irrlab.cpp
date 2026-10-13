@@ -1,13 +1,13 @@
 // s1 entry point: CLI, config load, logging, listen. Port of src/main.rs.
 
+#include <httplib.h>
+
 #include <charconv>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
-#include <string>
-
 #include <cxxopts.hpp>
-#include <httplib.h>
+#include <string>
 
 #include "config.hpp"
 #include "log.hpp"
@@ -36,9 +36,8 @@ int main(int argc, char** argv) {
     try {
         cxxopts::Options options(
             "s1", "Complexity-routing proxy for OpenAI- and Anthropic-compatible agents.");
-        options.add_options()(
-            "c,config", "Path to the TOML configuration.",
-            cxxopts::value<std::string>())("h,help", "Show help")(
+        options.add_options()("c,config", "Path to the TOML configuration.",
+                              cxxopts::value<std::string>())("h,help", "Show help")(
             "v,version", "Print version");
         auto parsed = options.parse(argc, argv);
         if (parsed.count("help") > 0) {
@@ -69,15 +68,13 @@ int main(int argc, char** argv) {
     const auto& cfg = config.value;
 
     std::string addr = cfg.server.host + ":" + std::to_string(cfg.server.port);
-    S1_LOG(log::Level::Info,
-           "tier=top url=" + cfg.top.base_url + " model=" + cfg.top.model +
-               " api_key=" + (cfg.top.api_key ? "true" : "false"));
-    S1_LOG(log::Level::Info,
-           "tier=flash url=" + cfg.flash.base_url + " model=" + cfg.flash.model +
-               " api_key=" + (cfg.flash.api_key ? "true" : "false"));
-    S1_LOG(log::Level::Info,
-           "decider=" + cfg.decider.url + " threshold=" + fmt_double(cfg.decider.threshold) +
-               " on_error=" + config::on_error_str(cfg.decider.on_error));
+    S1_LOG(log::Level::Info, "tier=top url=" + cfg.top.base_url + " model=" + cfg.top.model +
+                                 " api_key=" + (cfg.top.api_key ? "true" : "false"));
+    S1_LOG(log::Level::Info, "tier=flash url=" + cfg.flash.base_url + " model=" + cfg.flash.model +
+                                 " api_key=" + (cfg.flash.api_key ? "true" : "false"));
+    S1_LOG(log::Level::Info, "decider=" + cfg.decider.url +
+                                 " threshold=" + fmt_double(cfg.decider.threshold) +
+                                 " on_error=" + config::on_error_str(cfg.decider.on_error));
 
     httplib::Server svr;
     if (!svr.bind_to_port(cfg.server.host, cfg.server.port)) {

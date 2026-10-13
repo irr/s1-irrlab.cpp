@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <memory>
-
 #include <httplib.h>
+
+#include <memory>
 
 #include "config.hpp"
 
