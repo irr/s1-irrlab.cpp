@@ -79,14 +79,15 @@ int main(int argc, char** argv) {
            "decider=" + cfg.decider.url + " threshold=" + fmt_double(cfg.decider.threshold) +
                " on_error=" + config::on_error_str(cfg.decider.on_error));
 
-    server::Router router(std::move(config.value));
     httplib::Server svr;
-    router.install(svr);
-
     if (!svr.bind_to_port(cfg.server.host, cfg.server.port)) {
         std::fprintf(stderr, "Error: cannot listen on %s\n", addr.c_str());
         return 1;
     }
+    // Constructed after the bind: the move empties config.value, so nothing
+    // may read `cfg` (which aliases it) past this point.
+    server::Router router(std::move(config.value));
+    router.install(svr);
     S1_LOG(log::Level::Info, "listening on http://" + addr);
 
     g_server = &svr;

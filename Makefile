@@ -70,12 +70,18 @@ test: configure ## Unit + integration tests (mock decider and upstreams)
 	cmake --build $(BUILD) --parallel
 	ctest --test-dir $(BUILD) --output-on-failure
 
+FMT_SOURCES := src/*.cpp src/*.hpp src/anthropic/*.cpp src/anthropic/*.hpp tests/*.cpp
+
 vet: configure ## strict -Werror build + format check
 	cmake --build $(BUILD) --parallel --clean-first
-	@command -v clang-format >/dev/null 2>&1 && clang-format --dry-run -Werror src/*.cpp src/*.hpp src/anthropic/*.cpp src/anthropic/*.hpp tests/*.cpp || echo "clang-format not found; skipping format check"
+	@if command -v clang-format >/dev/null 2>&1; then \
+		clang-format --dry-run -Werror $(FMT_SOURCES); \
+	else \
+		echo "clang-format not found; skipping format check"; \
+	fi
 
 fmt: ## Format the code
-	clang-format -i src/*.cpp src/*.hpp src/anthropic/*.cpp src/anthropic/*.hpp tests/*.cpp
+	clang-format -i $(FMT_SOURCES)
 
 install: build ## Install to PREFIX (default ~/.local/bin)
 	install -m 0755 $(DIST)/$(BINARY) $(PREFIX)/$(BINARY)
